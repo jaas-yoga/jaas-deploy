@@ -1,0 +1,26 @@
+[Unit]
+Description=jaas-registry (FastAPI backend, via uv)
+After=network.target
+
+[Service]
+Type=simple
+User=jaas
+Group=jaas
+WorkingDirectory=/opt/jaas/registry/current
+ExecStart=/usr/bin/env uv run jaasctl serve --host 127.0.0.1 --port 8027
+Restart=on-failure
+RestartSec=5
+# Secrets (JAAS_JWT_SECRET, JAAS_GOOGLE_CLIENT_ID, JAAS_PASSWORD_PEPPER,
+# JAAS_TURNSTILE_SECRET_KEY, storage backend creds, ...) live here — see
+# provisioning/provision-api-vm.sh.
+EnvironmentFile=/opt/jaas/registry/shared/env
+Environment=JAAS_ENVIRONMENT=production
+Environment=JAAS_GUARDRAILS_SERVICE_URL=http://127.0.0.1:8028
+
+# Bound to loopback — Caddy (provisioning/Caddyfile.api) terminates TLS for
+# API_DOMAIN (GitHub OAuth's callback target) and proxies in locally.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

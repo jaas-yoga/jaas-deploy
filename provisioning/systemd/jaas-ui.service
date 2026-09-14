@@ -1,0 +1,28 @@
+[Unit]
+Description=jaas-ui (Next.js standalone server)
+After=network.target
+
+[Service]
+Type=simple
+User=jaas
+Group=jaas
+WorkingDirectory=/opt/jaas/ui/current
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3027
+Environment=HOSTNAME=127.0.0.1
+# Secrets (AUTH_SECRET, AUTH_GOOGLE_ID/SECRET, AUTH_URL, JAAS_API_URL,
+# JAAS_DEV_LOGIN_PASSWORD) live here, outside the release tree that git
+# deploys overwrite. Create once by hand during provisioning — see
+# provisioning/provision-web-vm.sh.
+EnvironmentFile=/opt/jaas/ui/shared/env
+
+# Bound to loopback only — Caddy (provisioning/Caddyfile.web) is the only
+# thing that should reach this port; it terminates TLS and proxies in.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

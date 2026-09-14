@@ -1,0 +1,81 @@
+name: Build and deploy
+
+# Reusable workflow, called from jaas-ui, jaas-skills, and jaas-guardrails on
+# push to main. Each caller repo supplies `service` (which artifact to build)
+# and `target_host` (which VM to ship it to), and inherits its own secrets
+# for the SSH deploy key. See README.md for the full architecture and the
+# exact secrets/variables each caller repo needs.
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Which service to build and deploy: ui | registry | guardrails"
+        required: true
+        type: string
+      target_host:
+        description: "SSH host (IP or DNS) of the VM this service deploys to"
+        required: true
+        type: string
+    secrets:
+      DEPLOY_SSH_KEY:
+        description: "Private half of the CI deploy keypair, authorized on both VMs"
+        required: true
+      DEPLOY_SSH_USER:
+        description: "SSH user on the target VM (e.g. jaas)"
+        required: true
+      DEPLOY_SSH_HOST_KEY:
+        description: "Pinned known_hosts line(s) for the target VM(s) — avoids StrictHostKeyChecking=no"
+        required: true
+
+jobs:
+  build-and-deploy:
+    # Flip vars.DEPLOYMENT_ENABLED to "true" in each caller repo once the VMs
+    # are provisioned and the secrets above are set. Until then this job is
+    # skipped rather than failing noisily on every push.
+    if: vars.DEPLOYMENT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Checkout jaas-deploy scripts
+        uses: actions/checkout@v4
+        with:
+          repository: jaas-yoga/jaas-deploy
+          path: .deploy
+
+      - name: Set up Node
+        if: inputs.service == 'ui'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build UI artifact
+        if: inputs.service == 'ui'
+        run: bash .deploy/scripts/build-node.sh
+
+      - name: Set up uv
+        if: inputs.service != 'ui'
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build Python artifact
+        if: inputs.service != 'ui'
+        run: bash .deploy/scripts/build-python.sh "${{ inputs.service }}"
+
+      - name: Configure SSH
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_HOST_KEY }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          bash .deploy/scripts/deploy.sh \
+            "${{ inputs.service }}" \
+            "${{ inputs.target_host }}" \
+            "${{ secrets.DEPLOY_SSH_USER }}"

@@ -1,0 +1,23 @@
+[Unit]
+Description=jaas-guardrails (scanning service, via uv)
+After=network.target
+
+[Service]
+Type=simple
+User=jaas
+Group=jaas
+WorkingDirectory=/opt/jaas/guardrails/current
+ExecStart=/usr/bin/env uv run jaas-guardrails
+Restart=on-failure
+RestartSec=5
+Environment=JAAS_GUARDRAILS_HOST=127.0.0.1
+Environment=JAAS_GUARDRAILS_PORT=8028
+
+# Colocated with jaas-registry on the same VM and bound to loopback only —
+# never exposed by Caddy, matching this service's offline/internal-only
+# design (docker-compose.yml gave it no published ports either).
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
