@@ -107,11 +107,12 @@ exist:
 | `DEPLOY_SSH_USER` | secret | `jaas` |
 | `DEPLOY_SSH_HOST_KEY` | secret | `ssh-keyscan <web-vm-ip> && ssh-keyscan <api-vm-ip>` output, both lines |
 | `DEPLOYMENT_ENABLED` | **variable** | `true` — flips the deploy job on; leave unset until the VMs and secrets above are ready, so pushes don't fail loudly in the meantime |
+| `WEB_VM_HOST` | **variable** | web VM's IP/hostname — only needed in `jaas-ui` |
+| `API_VM_HOST` | **variable** | api VM's IP/hostname — only needed in `jaas-skills` and `jaas-guardrails` |
 
-Each source repo's `.github/workflows/deploy.yml` hardcodes which
-`target_host` its service deploys to (web VM host for `jaas-ui`, api VM host
-for `jaas-skills`/`jaas-guardrails`) — update those two host values once the
-VM IPs/hostnames are known.
+Each source repo's `.github/workflows/deploy.yml` reads its target host from
+the `WEB_VM_HOST`/`API_VM_HOST` repo variable above rather than hardcoding
+it, so pointing at a new VM later is a variable change, not a code change.
 
 ## Rollback
 
